@@ -102,7 +102,7 @@ public class SSLInitializer {
 	public static void init(BasicSignerOptions options) throws NoSuchAlgorithmException, KeyManagementException,
 			KeyStoreException, CertificateException, IOException, UnrecoverableKeyException {
 		KeyManager[] km = null;
-		LOGGER.info("init: checking Tsa Server authentication");
+		LOGGER.fine("init: checking Tsa Server authentication");
 		if (options != null && options.getTsaServerAuthn() == ServerAuthentication.CERTIFICATE) {
 			LOGGER.info("init: going to initialise key manager");
 			char[] pwd = null;
@@ -117,13 +117,13 @@ public class SSLInitializer {
 			keyManagerFactory.init(keyStore, pwd);
 			km = keyManagerFactory.getKeyManagers();
 		} else {
-			LOGGER.info("init: skipped initialising key manager");
+			LOGGER.fine("init: skipped initialising key manager");
 		}
 		SSLContext sslContext = SSLContext.getInstance("TLS");
 		sslContext.init(km, TRUST_MANAGERS, null);
-		LOGGER.info("init: SSL context initialisation done");
+		LOGGER.fine("init: SSL context initialisation done");
 
 		HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
-		LOGGER.info("init: set default SSL factory");
+		LOGGER.fine("init: set default SSL factory");
 	}
 }

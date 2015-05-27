@@ -115,16 +115,33 @@ public class SignerLogic implements Runnable {
 		signFile();
 	}
 
+	public static class Status {
+		private boolean success = false;
+		private String errorMessage = "";
+
+		public Status(boolean success, String errorMessage) {
+			this.success = success;
+			this.errorMessage = errorMessage;
+		}
+
+		public boolean isSuccess() {
+			return success;
+		}
+
+		public String getErrorMessage() {
+			return errorMessage;
+		}
+	}
 	/**
 	 * Signs a single file.
 	 * 
 	 * @return true when signing is finished succesfully, false otherwise
 	 */
-	public boolean signFile() {
+	public Status signFile() {
 		final String outFile = options.getOutFileX();
 		if (!validateInOutFiles(options.getInFile(), outFile)) {
-			LOGGER.info(RES.get("console.skippingSigning"));
-			return false;
+			LOGGER.severe(RES.get("console.skippingSigning"));
+			return new Status(false, "Can not access either input or output file");
 		} else {
 			LOGGER.info("both input and output files validated");
 		}
@@ -132,25 +149,23 @@ public class SignerLogic implements Runnable {
 		boolean finished = false;
 		Throwable tmpException = null;
 		FileOutputStream fout = null;
+		String error ="";
 		try {
-/*
-			LOGGER.info("going to do SSL init.");
 			try {
 				SSLInitializer.init(options);
 			} catch (Exception ex) {
-				LOGGER.info("SSL init failed. Exception: " + ex.getMessage());
+				LOGGER.severe("SSL init failed. Exception: " + ex.getMessage());
 			}
 			LOGGER.info("SSL init done");
-*/
 
-			LOGGER.info("skipping SSL init");
 			final PrivateKeyInfo pkInfo = KeyStoreUtils.getPkInfo(options);
 			final PrivateKey key = pkInfo.getKey();
 			final Certificate[] chain = pkInfo.getChain();
 			if (ArrayUtils.isEmpty(chain)) {
 				// the certificate was not found
-				LOGGER.info(RES.get("console.certificateChainEmpty"));
-				return false;
+				error = RES.get("console.certificateChainEmpty");
+				LOGGER.severe(error);
+				return new Status(false, error);
 			}
 			LOGGER.info(RES.get("console.createPdfReader", options.getInFile()));
 			PdfReader reader;
@@ -179,8 +194,9 @@ public class SignerLogic implements Runnable {
 				if (options.isAppendX()) {
 					// if we are in append mode and version should be updated
 					// then return false (not possible)
-					LOGGER.info(RES.get("console.updateVersionNotPossibleInAppendMode"));
-					return false;
+					error = RES.get("console.updateVersionNotPossibleInAppendMode");
+					LOGGER.severe(error);
+					return new Status(false, error);
 				}
 				tmpPdfVersion = hashAlgorithm.getPdfVersion();
 				LOGGER.info(RES.get("console.updateVersion", new String[] { String.valueOf(reader.getPdfVersion()),
@@ -216,19 +232,22 @@ public class SignerLogic implements Runnable {
 					if (encCert == null) {
 						LOGGER.severe(RES.get("console.pdfEncError.wrongCertificateFile",
 								StringUtils.defaultString(options.getPdfEncryptionCertFile())));
-						return false;
+						return new Status(false, RES.get("console.pdfEncError.wrongCertificateFile") +
+								StringUtils.defaultString(options.getPdfEncryptionCertFile()));
 					}
 					if (!KeyStoreUtils.isEncryptionSupported(encCert)) {
 						LOGGER.severe(RES
 								.get("console.pdfEncError.cantUseCertificate", encCert.getSubjectDN().getName()));
-						return false;
+						return new Status(false,RES
+								.get("console.pdfEncError.cantUseCertificate") + encCert.getSubjectDN().getName());
 					}
 					stp.setEncryption(new Certificate[] { encCert }, new int[] { tmpRight },
 							PdfWriter.ENCRYPTION_AES_128);
 					break;
 				default:
-					LOGGER.severe(RES.get("console.unsupportedEncryptionType"));
-					return false;
+					error = RES.get("console.unsupportedEncryptionType");
+					LOGGER.severe(error);
+					return new Status(false, error);
 				}
 			}
 
@@ -415,8 +434,10 @@ public class SignerLogic implements Runnable {
 			finished = true;
 		} catch (Exception e) {
 			LOGGER.log(Level.SEVERE, RES.get("console.exception"), e);
+            error = e.getMessage();
 		} catch (OutOfMemoryError e) {
 			LOGGER.log(Level.SEVERE, RES.get("console.memoryError"), e);
+            error = e.getMessage();
 		} finally {
 			if (fout != null) {
 				try {
@@ -428,8 +449,8 @@ public class SignerLogic implements Runnable {
 
 			LOGGER.info(RES.get("console.finished." + (finished ? "ok" : "error")));
 			options.fireSignerFinishedEvent(tmpException);
+			return new Status(finished, error);
 		}
-		return finished;
 	}
 
 	public static <V> String replace(Object source, Map<String, V> valueMap) {
