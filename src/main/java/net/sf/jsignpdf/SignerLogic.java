@@ -132,6 +132,11 @@ public class SignerLogic implements Runnable {
 			return errorMessage;
 		}
 	}
+
+	public String[] getKeyAliases() {
+		return KeyStoreUtils.getKeyAliases(options);
+	}
+
 	/**
 	 * Signs a single file.
 	 * 
